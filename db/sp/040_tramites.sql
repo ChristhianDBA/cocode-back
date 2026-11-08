@@ -149,7 +149,7 @@ BEGIN
     IF v_tramite.proposito <> 'ALTA' THEN
         PERFORM fn_error(409, 'TRAMITE_INVALIDO', 'Tu registro no es válido. Vuelve a empezar');
     END IF;
-    SELECT * INTO v_cuadrante FROM cuadrantes WHERE id = fn_cuadrante_de_punto(v_punto);
+    SELECT * INTO v_cuadrante FROM cuadrantes WHERE id = fn_cuadrante_o_cercano(v_punto);
     IF NOT FOUND THEN
         PERFORM fn_error(409, 'SIN_COBERTURA', 'Tu zona aún no tiene cobertura. Te avisaremos cuando esté disponible');
     END IF;
@@ -224,7 +224,7 @@ BEGIN
         v_t.punto := coalesce(v_t.punto, fn_punto(-12.0905, -76.9902));
         v_t.direccion := coalesce(v_t.direccion, 'Dirección vecinal registrada');
         v_t.referencia_cuadra := coalesce(v_t.referencia_cuadra, 'Sector 1');
-        v_t.cuadrante_id := coalesce(v_t.cuadrante_id, fn_cuadrante_de_punto(v_t.punto));
+        v_t.cuadrante_id := coalesce(v_t.cuadrante_id, fn_cuadrante_o_cercano(v_t.punto));
     END IF;
     IF p_acepta_tratamiento IS DISTINCT FROM true THEN
         PERFORM fn_error(409, 'FALTA_ACEPTACION', 'Debes aceptar el tratamiento de tus datos personales para registrarte');
@@ -232,7 +232,7 @@ BEGIN
     IF fn_edad(v_t.fecha_nacimiento) < fn_parametro_entero('edad_minima', 18) THEN
         PERFORM fn_error(409, 'MENOR_DE_EDAD', 'Debes ser mayor de edad para unirte a la red vecinal');
     END IF;
-    IF fn_cuadrante_de_punto(v_t.punto) IS NULL THEN
+    IF fn_cuadrante_o_cercano(v_t.punto) IS NULL THEN
         PERFORM fn_error(409, 'SIN_COBERTURA', 'Tu zona aún no tiene cobertura. Te avisaremos cuando esté disponible');
     END IF;
 
@@ -251,7 +251,7 @@ BEGIN
     END;
 
     INSERT INTO domicilios (usuario_id, punto, direccion, referencia_cuadra, cuadrante_id)
-    VALUES (v_usuario, v_t.punto, v_t.direccion, v_t.referencia_cuadra, fn_cuadrante_de_punto(v_t.punto));
+    VALUES (v_usuario, v_t.punto, v_t.direccion, v_t.referencia_cuadra, fn_cuadrante_o_cercano(v_t.punto));
 
     UPDATE altas_en_curso SET completada_en = clock_timestamp(), usuario_id = v_usuario, actualizado_en = clock_timestamp()
     WHERE id = v_t.id;

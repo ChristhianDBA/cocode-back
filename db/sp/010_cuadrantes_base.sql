@@ -13,12 +13,22 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, extensions, pg_temp
 AS $$
+    SELECT c.id
+    FROM cuadrantes c
+    WHERE c.habilitado AND c.activo AND ST_Covers(c.poligono, p_punto)
+    ORDER BY c.codigo
+    LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_cuadrante_o_cercano(p_punto geometry)
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
+AS $$
     SELECT coalesce(
-        (SELECT c.id
-         FROM cuadrantes c
-         WHERE c.habilitado AND c.activo AND ST_Covers(c.poligono, p_punto)
-         ORDER BY c.codigo
-         LIMIT 1),
+        fn_cuadrante_de_punto(p_punto),
         (SELECT c.id
          FROM cuadrantes c
          WHERE c.habilitado AND c.activo
