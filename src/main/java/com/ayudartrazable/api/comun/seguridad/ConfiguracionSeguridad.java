@@ -35,6 +35,7 @@ public class ConfiguracionSeguridad {
             "/api/v1/auth/alta",
             "/api/v1/auth/alta/domicilio",
             "/api/v1/auth/ingreso",
+            "/api/v1/auth/ingreso/**",
             "/api/v1/auth/ingreso/verificar",
             "/api/v1/auth/renovar",
             "/api/v1/auth/recuperacion/**",
@@ -96,7 +97,7 @@ public class ConfiguracionSeguridad {
         return new SecretKeySpec(bytes, "HmacSHA256");
     }
 
-    private static void escribir(HttpServletResponse respuesta, int estado, ApiError error) throws IOException {
+    private static final void escribir(HttpServletResponse respuesta, int estado, ApiError error) throws IOException {
         respuesta.setStatus(estado);
         respuesta.setCharacterEncoding(StandardCharsets.UTF_8.name());
         respuesta.setContentType(MediaType.APPLICATION_JSON_VALUE);

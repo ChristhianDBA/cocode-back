@@ -5,6 +5,7 @@ import com.ayudartrazable.api.identidad.dto.IdentidadDto.EstadoTramite;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaCodigo;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaDomicilio;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaIngreso;
+import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaIngresoCelular;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaSesion;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaTramite;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaVerificacion;
@@ -13,8 +14,10 @@ import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudCodigo;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudDni;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudDomicilio;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudIngreso;
+import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudIngresoCelular;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudRenovar;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudVerificacion;
+import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudVerificarCelular;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudVerificarIngreso;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -58,15 +61,17 @@ public class IdentidadControlador {
     }
 
     @PostMapping("/codigo")
-    public RespuestaCodigo solicitarCodigo(@RequestHeader(CABECERA_TRAMITE) String token,
+    public RespuestaCodigo solicitarCodigo(
+            @RequestHeader(value = CABECERA_TRAMITE, required = false) String token,
             @Valid @RequestBody SolicitudCodigo solicitud) {
         return servicio.solicitarCodigo(token, solicitud.celular(), solicitud.canal());
     }
 
     @PostMapping("/codigo/verificar")
-    public RespuestaVerificacion verificarCodigo(@RequestHeader(CABECERA_TRAMITE) String token,
+    public RespuestaVerificacion verificarCodigo(
+            @RequestHeader(value = CABECERA_TRAMITE, required = false) String token,
             @Valid @RequestBody SolicitudVerificacion solicitud) {
-        return servicio.verificarCodigo(token, solicitud.codigo());
+        return servicio.verificarCodigo(token, solicitud.codigo(), solicitud.celular());
     }
 
     @PostMapping("/alta/domicilio")
@@ -85,6 +90,16 @@ public class IdentidadControlador {
     @PostMapping("/ingreso")
     public RespuestaIngreso ingreso(@Valid @RequestBody SolicitudIngreso solicitud) {
         return servicio.solicitarIngreso(solicitud.dni(), solicitud.canal());
+    }
+
+    @PostMapping("/ingreso/celular")
+    public RespuestaIngresoCelular ingresoPorCelular(@Valid @RequestBody SolicitudIngresoCelular solicitud) {
+        return servicio.solicitarIngresoPorCelular(solicitud.celular(), solicitud.canal());
+    }
+
+    @PostMapping("/ingreso/celular/verificar")
+    public RespuestaSesion verificarIngresoPorCelular(@Valid @RequestBody SolicitudVerificarCelular solicitud) {
+        return servicio.verificarIngresoPorCelular(solicitud.tokenIngreso(), solicitud.celular(), solicitud.codigo());
     }
 
     @PostMapping("/ingreso/verificar")

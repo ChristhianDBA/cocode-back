@@ -29,14 +29,16 @@ public class EnvioCodigoTwilio implements EnvioCodigo {
 
     @Override
     public void enviar(String celular, String codigo, Canal canal, int minutosDeVigencia) {
+        String e164 = ValidadorCelular.formatoE164(celular);
         String prefijo = canal == Canal.WHATSAPP ? "whatsapp:" : "";
-        publicar(prefijo + "+51" + celular, prefijo + (canal == Canal.WHATSAPP ? remitenteWhatsapp : remitenteSms),
+        publicar(prefijo + e164, prefijo + (canal == Canal.WHATSAPP ? remitenteWhatsapp : remitenteSms),
                 "Tu código de Ayudar Trazable es " + codigo + ". Vence en " + minutosDeVigencia + " minutos.");
     }
 
     @Override
     public void avisar(String celular, String mensaje) {
-        publicar("+51" + celular, remitenteSms, mensaje);
+        String e164 = ValidadorCelular.formatoE164(celular);
+        publicar(e164, remitenteSms, mensaje);
     }
 
     private void publicar(String destino, String remitente, String cuerpo) {

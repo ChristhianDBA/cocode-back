@@ -6,7 +6,6 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -69,7 +68,12 @@ public final class IdentidadDto {
     }
 
     public record SolicitudVerificacion(
-            @NotNull(message = "Ingresa el código") @Pattern(regexp = "\\d{4}", message = "El código tiene 4 dígitos") String codigo) {
+            @NotNull(message = "Ingresa el código") @Pattern(regexp = "\\d{4}", message = "El código tiene 4 dígitos") String codigo,
+            String celular) {
+
+        public SolicitudVerificacion(String codigo) {
+            this(codigo, null);
+        }
 
         @Override
         public String toString() {
@@ -121,6 +125,28 @@ public final class IdentidadDto {
         public String toString() {
             return "SolicitudIngreso[canal=" + canal + "]";
         }
+    }
+
+    public record SolicitudIngresoCelular(
+            @NotBlank(message = "Ingresa tu número de celular") String celular,
+            Canal canal) {
+    }
+
+    public record RespuestaIngresoCelular(
+            String tokenIngreso,
+            String celular,
+            String celularFormateado,
+            String celularEnmascarado,
+            String canal,
+            int venceEnSegundos,
+            int reenvioEnSegundos,
+            String devCode) {
+    }
+
+    public record SolicitudVerificarCelular(
+            String tokenIngreso,
+            String celular,
+            @NotNull(message = "Ingresa el código") @Pattern(regexp = "\\d{4}", message = "El código tiene 4 dígitos") String codigo) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

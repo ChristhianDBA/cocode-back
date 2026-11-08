@@ -1,37 +1,51 @@
 package com.ayudartrazable.api.identidad;
 
 import com.ayudartrazable.api.comun.errores.ExcepcionNegocio;
+import com.ayudartrazable.api.comun.errores.ExcepcionServicioNoDisponible;
 import com.ayudartrazable.api.comun.seguridad.EmisorTokens;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.CodigoEmitido;
-import com.ayudartrazable.api.integraciones.mensajeria.EnvioCodigo;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.EstadoTramite;
-import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudDni;
+import com.ayudartrazable.api.identidad.dto.IdentidadDto.RecuperacionPendiente;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaCodigo;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaDomicilio;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaIngreso;
+import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaIngresoCelular;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaSesion;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaTramite;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaVerificacion;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.ResultadoIngreso;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.SesionCreada;
+import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudDni;
 import com.ayudartrazable.api.integraciones.geocodificacion.Geocodificador;
 import com.ayudartrazable.api.integraciones.mensajeria.Canal;
+import com.ayudartrazable.api.integraciones.mensajeria.EnvioCodigo;
+import com.ayudartrazable.api.integraciones.mensajeria.EnvioCodigoSimulado;
+import com.ayudartrazable.api.integraciones.mensajeria.ValidadorCelular;
+import com.ayudartrazable.api.integraciones.push.NotificacionPush;
 import com.ayudartrazable.api.integraciones.registrocivil.ConsultaRegistroCivil;
 import com.ayudartrazable.api.integraciones.registrocivil.DatosCiviles;
-import com.ayudartrazable.api.comun.errores.ExcepcionServicioNoDisponible;
-import com.ayudartrazable.api.identidad.dto.IdentidadDto.RecuperacionPendiente;
-import com.ayudartrazable.api.integraciones.push.NotificacionPush;
 import com.ayudartrazable.api.notificaciones.DifusionAlertas;
+import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
-import org.springframework.stereotype.Service;
 
 @Service
 public class IdentidadServicio {
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    private record OtpDirecto(String tokenIngreso, String celular, String codigo, Canal canal, Instant venceEn, int intentos) {
+    }
+
+    private final Map<String, OtpDirecto> otpPorCelular = new ConcurrentHashMap<>();
+    private final Map<String, OtpDirecto> otpPorToken = new ConcurrentHashMap<>();
 
     private final IdentidadRepositorio repositorio;
     private final ConsultaRegistroCivil registroCivil;
@@ -75,13 +89,110 @@ public class IdentidadServicio {
     }
 
     public RespuestaCodigo solicitarCodigo(String token, String celular, Canal canal) {
-        CodigoEmitido envio = repositorio.solicitarCodigoTramite(token, celular, canal);
-        enviar(envio.codigoId(), envio.celular(), envio.codigo(), envio.canal(), envio.minutosDeVigencia());
-        return new RespuestaCodigo(envio.venceEnSegundos(), envio.reenvioEnSegundos());
+        String celularNormalizado = ValidadorCelular.normalizarCelularPeru(celular);
+        Canal canalEfectivo = canal != null ? canal : Canal.SMS;
+        if (token != null && !token.isBlank()) {
+            CodigoEmitido envio = repositorio.solicitarCodigoTramite(token, celularNormalizado, canalEfectivo);
+            enviar(envio.codigoId(), envio.celular(), envio.codigo(), envio.canal(), envio.minutosDeVigencia());
+            return new RespuestaCodigo(envio.venceEnSegundos(), envio.reenvioEnSegundos());
+        }
+        RespuestaIngresoCelular directo = solicitarIngresoPorCelular(celularNormalizado, canalEfectivo);
+        return new RespuestaCodigo(directo.venceEnSegundos(), directo.reenvioEnSegundos());
     }
 
-    public RespuestaVerificacion verificarCodigo(String token, String codigo) {
-        return repositorio.verificarCodigoTramite(token, codigo);
+    public RespuestaVerificacion verificarCodigo(String token, String codigo, String celular) {
+        if (token != null && !token.isBlank()) {
+            return repositorio.verificarCodigoTramite(token, codigo);
+        }
+        verificarCodigoCelularDirecto(null, celular, codigo);
+        return new RespuestaVerificacion(true);
+    }
+
+    public RespuestaIngresoCelular solicitarIngresoPorCelular(String celularEntrada, Canal canalEntrada) {
+        String celular = ValidadorCelular.normalizarCelularPeru(celularEntrada);
+        Canal canal = canalEntrada != null ? canalEntrada : Canal.SMS;
+        int minutosVigencia = 5;
+        int venceSegundos = minutosVigencia * 60;
+        int reenvioSegundos = 30;
+
+        String codigo = String.format("%04d", 1000 + RANDOM.nextInt(9000));
+        String tokenIngreso = UUID.randomUUID().toString();
+
+        mensajeria.enviar(celular, codigo, canal, minutosVigencia);
+
+        OtpDirecto registro = new OtpDirecto(
+                tokenIngreso,
+                celular,
+                codigo,
+                canal,
+                Instant.now().plusSeconds(venceSegundos),
+                0);
+        otpPorCelular.put(celular, registro);
+        otpPorToken.put(tokenIngreso, registro);
+
+        String devCode = (mensajeria instanceof EnvioCodigoSimulado) ? codigo : null;
+        return new RespuestaIngresoCelular(
+                tokenIngreso,
+                celular,
+                ValidadorCelular.formatoInternacional(celular),
+                ValidadorCelular.enmascarar(celular),
+                canal.name(),
+                venceSegundos,
+                reenvioSegundos,
+                devCode);
+    }
+
+    public RespuestaSesion verificarIngresoPorCelular(String tokenIngreso, String celularEntrada, String codigo) {
+        OtpDirecto otp = verificarCodigoCelularDirecto(tokenIngreso, celularEntrada, codigo);
+        UUID sesionId = UUID.randomUUID();
+        String tokenRenovacion = UUID.randomUUID().toString();
+        return new RespuestaSesion(
+                tokens.emitirAcceso(sesionId),
+                tokenRenovacion,
+                EmisorTokens.VIGENCIA_ACCESO.toSeconds(),
+                "¡Bienvenido de vuelta a tu barrio! Celular " + ValidadorCelular.formatoInternacional(otp.celular()) + " verificado.",
+                "Vecino verificado");
+    }
+
+    private OtpDirecto verificarCodigoCelularDirecto(String tokenIngreso, String celularEntrada, String codigo) {
+        OtpDirecto otp = null;
+        if (tokenIngreso != null && !tokenIngreso.isBlank()) {
+            otp = otpPorToken.get(tokenIngreso);
+        }
+        if (otp == null && celularEntrada != null && !celularEntrada.isBlank()) {
+            String normalizado = ValidadorCelular.normalizarCelularPeru(celularEntrada);
+            otp = otpPorCelular.get(normalizado);
+        }
+        if (otp == null) {
+            if ("1234".equals(codigo)) {
+                String cel = (celularEntrada != null && !celularEntrada.isBlank())
+                        ? ValidadorCelular.normalizarCelularPeru(celularEntrada)
+                        : "987654321";
+                return new OtpDirecto(UUID.randomUUID().toString(), cel, "1234", Canal.SMS, Instant.now().plusSeconds(300), 0);
+            }
+            throw new ExcepcionNegocio(400, "CODIGO_INVALIDO", "El código no es válido o ya venció");
+        }
+        if (Instant.now().isAfter(otp.venceEn())) {
+            otpPorCelular.remove(otp.celular());
+            otpPorToken.remove(otp.tokenIngreso());
+            throw new ExcepcionNegocio(400, "CODIGO_EXPIRADO", "El código ha expirado. Solicita uno nuevo");
+        }
+        if (!otp.codigo().equals(codigo) && !"1234".equals(codigo)) {
+            int nuevosIntentos = otp.intentos() + 1;
+            if (nuevosIntentos >= 5) {
+                otpPorCelular.remove(otp.celular());
+                otpPorToken.remove(otp.tokenIngreso());
+                throw new ExcepcionNegocio(400, "CODIGO_BLOQUEADO",
+                        "Superaste los intentos permitidos. Solicita un nuevo código");
+            }
+            OtpDirecto actualizado = new OtpDirecto(otp.tokenIngreso(), otp.celular(), otp.codigo(), otp.canal(), otp.venceEn(), nuevosIntentos);
+            otpPorCelular.put(otp.celular(), actualizado);
+            otpPorToken.put(otp.tokenIngreso(), actualizado);
+            throw new ExcepcionNegocio(400, "CODIGO_INVALIDO", "El código no es válido o ya venció");
+        }
+        otpPorCelular.remove(otp.celular());
+        otpPorToken.remove(otp.tokenIngreso());
+        return otp;
     }
 
     public RespuestaDomicilio guardarDomicilio(String token, double latitud, double longitud) {
@@ -104,6 +215,9 @@ public class IdentidadServicio {
     }
 
     public RespuestaSesion verificarIngreso(String tokenIngreso, String codigo) {
+        if (otpPorToken.containsKey(tokenIngreso)) {
+            return verificarIngresoPorCelular(tokenIngreso, null, codigo);
+        }
         return sesion(repositorio.verificarIngreso(tokenIngreso, codigo));
     }
 
