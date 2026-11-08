@@ -1,107 +1,110 @@
 package com.ayudartrazable.api.publicaciones;
 
+import com.ayudartrazable.api.cuadrantes.dto.CuadrantesDto.PinMapa;
 import com.ayudartrazable.api.publicaciones.dto.PublicacionesDto.CambioEstado;
 import com.ayudartrazable.api.publicaciones.dto.PublicacionesDto.ItemActividad;
 import com.ayudartrazable.api.publicaciones.dto.PublicacionesDto.PublicacionItem;
 import com.ayudartrazable.api.publicaciones.dto.PublicacionesDto.RespuestaSolicitudFavor;
 import com.ayudartrazable.api.publicaciones.dto.PublicacionesDto.SolicitudFavor;
 import com.ayudartrazable.api.publicaciones.dto.PublicacionesDto.SolicitudPublicacion;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class PublicacionesServicio {
 
-    private final List<PublicacionItem> publicaciones = new CopyOnWriteArrayList<>();
-    private final List<ItemActividad> publicacionesUsuario = new CopyOnWriteArrayList<>();
-    private final List<ItemActividad> favoresHice = new CopyOnWriteArrayList<>();
-    private final List<ItemActividad> favoresPedi = new CopyOnWriteArrayList<>();
-    private final Map<String, String> estados = new ConcurrentHashMap<>();
+    private final JdbcTemplate jdbc;
+    private final JsonMapper json;
 
-    public PublicacionesServicio() {
-        // Inicializar datos semilla oficiales alineados al diseño de Figma
-        publicaciones.add(new PublicacionItem(
-                "1", "RQ", "Rosa Quispe", "Gasfitería", "Atiende hoy", "180 m", 42, 4.9,
-                "#d6eee2", "#144e40", "servicios", "servicio", "Mz. D, Los Pinos", "chat",
-                List.of("12 años de experiencia", "Garantía de servicio"), "Hace 2 horas"));
+    public PublicacionesServicio(JdbcTemplate jdbc, JsonMapper json) {
+        this.jdbc = jdbc;
+        this.json = json;
+    }
 
-        publicaciones.add(new PublicacionItem(
-                "2", "MH", "Miguel Huamán", "Electricista domiciliario", "Instalaciones y emergencias", "350 m", 31, 4.8,
-                "#faecd5", "#8c531b", "servicios", "servicio", "Mz. B, Los Pinos", "chat",
-                List.of("Técnico certificado", "Disponibilidad fines de semana"), "Hace 4 horas"));
+    private PublicacionItem mapPublicacion(ResultSet rs, int rowNum) throws SQLException {
+        List<String> condiciones = List.of();
+        try {
+            String raw = rs.getString("condiciones");
+            if (raw != null && !raw.isBlank()) {
+                condiciones = json.readValue(raw, new TypeReference<List<String>>() {});
+            }
+        } catch (Exception ignored) {
+        }
+        return new PublicacionItem(
+                rs.getString("id"),
+                rs.getString("iniciales"),
+                rs.getString("nombre"),
+                rs.getString("rubro"),
+                rs.getString("detalle"),
+                rs.getString("distancia"),
+                rs.getInt("vistos"),
+                rs.getDouble("calificacion"),
+                rs.getString("avatar_bg"),
+                rs.getString("avatar_color"),
+                rs.getString("categoria"),
+                rs.getString("tipo"),
+                rs.getString("ubicacion"),
+                rs.getString("metodo_contacto"),
+                condiciones,
+                rs.getString("tiempo")
+        );
+    }
 
-        publicaciones.add(new PublicacionItem(
-                "3", "LT", "Lucía Torres", "Clases de matemática", "Secundaria y preuniversitario", "420 m", 27, 5.0,
-                "#e0e7fb", "#2b4290", "servicios", "servicio", "Mz. C, Los Pinos", "chat",
-                List.of("Modalidad presencial o virtual"), "Ayer"));
-
-        publicaciones.add(new PublicacionItem(
-                "4", "JC", "Jorge Córdova", "Carpintería y cerrajería", "Duplicado de llaves y chapas", "600 m", 19, 4.7,
-                "#fee4e2", "#912018", "servicios", "servicio", "Mz. A, Los Pinos", "whatsapp",
-                List.of("Atención de emergencias 24h"), "Ayer"));
-
-        publicaciones.add(new PublicacionItem(
-                "5", "JR", "Julio R. · Mz. A", "Presto taladro percutor", "Para el fin de semana. Solo pido que lo devuelvas limpio.", "150 m", 23, 5.0,
-                "#e0e7fb", "#2b4290", "favores", "presto", "Mz. A, Los Pinos", "chat",
-                List.of("Disponible: fin de semana", "Préstamo máximo: 3 días"), "Hace 3 días"));
-
-        publicaciones.add(new PublicacionItem(
-                "6", "TL", "Teresa L.", "Presto escalera telescópica", "Para trabajos en casa hasta 3 metros", "310 m", 15, 4.9,
-                "#fee4e2", "#912018", "favores", "presto", "Mz. B, Los Pinos", "chat",
-                List.of("Préstamo máximo: 2 días"), "Hace 4 días"));
-
-        publicaciones.add(new PublicacionItem(
-                "7", "CR", "Carlos Ramos", "Dono libros escolares de primaria", "3ro y 4to de primaria en buen estado", "390 m", 22, 4.9,
-                "#d6eee2", "#144e40", "favores", "dono", "Mz. C, Los Pinos", "chat",
-                List.of("Entrega en portería"), "Hace 5 días"));
-
-        // Semillas para la pestaña "Mi Actividad" (Figma Screen 4)
-        publicacionesUsuario.add(new ItemActividad(
-                "u1", "Mi servicio", "Electricidad · 8 años de experiencia",
-                "Visible en Servicios · 4 vecinos te contactaron esta semana", "Activo", "Hoy", 4, null, null));
-        publicacionesUsuario.add(new ItemActividad(
-                "u2", "Presto", "Presto escalera de 3 metros",
-                "Prestada a Teresa L. hasta el domingo", "En curso", "Hace 2 días", 1, "Teresa L.", "domingo"));
-        publicacionesUsuario.add(new ItemActividad(
-                "u3", "Dono", "Dono libros escolares de primaria",
-                "Publicado hace 3 días · 2 vecinos interesados", "Activo", "Hace 3 días", 2, null, null));
-
-        favoresHice.add(new ItemActividad(
-                "h1", "Presto", "Presto escalera de 3 metros",
-                "Prestada a Teresa L. hasta el domingo", "En curso", "Esta semana", 1, "Teresa L.", "domingo"));
-        favoresHice.add(new ItemActividad(
-                "h2", "Ofrezco", "Ayuda podando ramas del pasaje B",
-                "Completado con Jorge C.", "Finalizado", "Hace 2 semanas", 1, "Jorge C.", null));
-
-        favoresPedi.add(new ItemActividad(
-                "p1", "Pedí", "Taladro percutor",
-                "Prestado por Julio R. · Por devolver el lunes", "En curso", "Ayer", 1, "Julio R.", "lunes"));
+    private ItemActividad mapActividad(ResultSet rs, int rowNum) throws SQLException {
+        return new ItemActividad(
+                rs.getString("id"),
+                rs.getString("tipo"),
+                rs.getString("titulo"),
+                rs.getString("subtitulo"),
+                rs.getString("estado"),
+                rs.getString("fecha"),
+                rs.getInt("interesados_count"),
+                rs.getString("prestado_a"),
+                rs.getString("hasta_fecha")
+        );
     }
 
     public List<PublicacionItem> listar(String categoria, String tipo, String buscar) {
-        return publicaciones.stream()
-                .filter(p -> categoria == null || categoria.isBlank() || p.categoria().equalsIgnoreCase(categoria))
-                .filter(p -> tipo == null || tipo.isBlank() || p.tipo().equalsIgnoreCase(tipo))
-                .filter(p -> {
-                    if (buscar == null || buscar.isBlank()) return true;
-                    String b = buscar.toLowerCase();
-                    return p.nombre().toLowerCase().contains(b) ||
-                           p.rubro().toLowerCase().contains(b) ||
-                           p.detalle().toLowerCase().contains(b);
-                })
-                .toList();
+        StringBuilder sql = new StringBuilder("SELECT * FROM publicaciones_barrio WHERE activo = true");
+        List<Object> params = new ArrayList<>();
+
+        if (categoria != null && !categoria.isBlank()) {
+            sql.append(" AND lower(categoria) = lower(?)");
+            params.add(categoria);
+        }
+        if (tipo != null && !tipo.isBlank()) {
+            sql.append(" AND lower(tipo) = lower(?)");
+            params.add(tipo);
+        }
+        if (buscar != null && !buscar.isBlank()) {
+            sql.append(" AND (lower(nombre) LIKE ? OR lower(rubro) LIKE ? OR lower(detalle) LIKE ?)");
+            String pattern = "%" + buscar.toLowerCase() + "%";
+            params.add(pattern);
+            params.add(pattern);
+            params.add(pattern);
+        }
+        sql.append(" ORDER BY creado_en DESC, id ASC");
+        return jdbc.query(sql.toString(), this::mapPublicacion, params.toArray());
     }
 
     public PublicacionItem obtenerPorId(String id) {
-        return publicaciones.stream()
-                .filter(p -> p.id().equals(id))
-                .findFirst()
-                .orElse(publicaciones.isEmpty() ? null : publicaciones.get(0));
+        List<PublicacionItem> list = jdbc.query(
+                "SELECT * FROM publicaciones_barrio WHERE id = ? AND activo = true",
+                this::mapPublicacion, id);
+        if (!list.isEmpty()) {
+            return list.get(0);
+        }
+        List<PublicacionItem> fallback = jdbc.query(
+                "SELECT * FROM publicaciones_barrio WHERE activo = true ORDER BY creado_en DESC LIMIT 1",
+                this::mapPublicacion);
+        return fallback.isEmpty() ? null : fallback.get(0);
     }
 
     public PublicacionItem crear(SolicitudPublicacion solicitud, String nombreAutor) {
@@ -110,83 +113,140 @@ public class PublicacionesServicio {
         String iniciales = nombreAutor != null && !nombreAutor.isBlank()
                 ? nombreAutor.substring(0, Math.min(2, nombreAutor.length())).toUpperCase()
                 : "TU";
+        String nombre = nombreAutor != null && !nombreAutor.isBlank() ? nombreAutor : "Tú";
+        String detalle = solicitud.descripcion() != null && !solicitud.descripcion().isBlank()
+                ? solicitud.descripcion()
+                : "Publicado en tu cuadrante";
+        String bg = "servicios".equals(cat) ? "#d6eee2" : "#e0e7fb";
+        String color = "servicios".equals(cat) ? "#144e40" : "#2b4290";
+        String tipoNorm = solicitud.tipo().toLowerCase();
+        String ubicacion = solicitud.ubicacion() != null && !solicitud.ubicacion().isBlank()
+                ? solicitud.ubicacion()
+                : "Mz. D, Los Pinos";
+        String contacto = solicitud.metodoContacto() != null && !solicitud.metodoContacto().isBlank()
+                ? solicitud.metodoContacto()
+                : "chat";
+        List<String> conds = solicitud.condiciones() != null ? solicitud.condiciones() : List.of("Coordinar por chat");
+        String condsJson = "[]";
+        try {
+            condsJson = json.writeValueAsString(conds);
+        } catch (Exception ignored) {
+        }
 
-        PublicacionItem nueva = new PublicacionItem(
-                id,
-                iniciales,
-                nombreAutor != null ? nombreAutor : "Tú",
-                solicitud.titulo(),
-                solicitud.descripcion() != null ? solicitud.descripcion() : "Publicado en tu cuadrante",
-                "0 m (Tu casa)",
-                1,
-                5.0,
-                "servicios".equals(cat) ? "#d6eee2" : "#e0e7fb",
-                "servicios".equals(cat) ? "#144e40" : "#2b4290",
-                cat,
-                solicitud.tipo().toLowerCase(),
-                solicitud.ubicacion() != null ? solicitud.ubicacion() : "Mz. D, Los Pinos",
-                solicitud.metodoContacto() != null ? solicitud.metodoContacto() : "chat",
-                solicitud.condiciones() != null ? solicitud.condiciones() : List.of("Coordinar por chat"),
-                "Recién publicado"
+        jdbc.update("""
+                INSERT INTO publicaciones_barrio
+                (id, iniciales, nombre, rubro, detalle, distancia, vistos, calificacion, avatar_bg, avatar_color,
+                 categoria, tipo, ubicacion, metodo_contacto, condiciones, tiempo, latitud, longitud, tag, estado, activo)
+                VALUES (?, ?, ?, ?, ?, '0 m (Tu casa)', 1, 5.0, ?, ?, ?, ?, ?, ?, ?::jsonb, 'Recién publicado', -12.0905, -76.9902, 'Todos', 'Activo', true)
+                """,
+                id, iniciales, nombre, solicitud.titulo(), detalle, bg, color, cat, tipoNorm, ubicacion, contacto, condsJson);
+
+        String badge = "servicio".equalsIgnoreCase(tipoNorm)
+                ? "Mi servicio"
+                : tipoNorm.substring(0, 1).toUpperCase() + tipoNorm.substring(1);
+
+        jdbc.update("""
+                INSERT INTO actividad_vecinal
+                (id, lista_tipo, tipo, titulo, subtitulo, estado, fecha, interesados_count, prestado_a, hasta_fecha, activo)
+                VALUES (?, 'MIS_PUBLICACIONES', ?, ?, ?, 'Activo', 'Hoy', 0, NULL, NULL, true)
+                """,
+                id, badge, solicitud.titulo(), detalle);
+
+        return new PublicacionItem(
+                id, iniciales, nombre, solicitud.titulo(), detalle, "0 m (Tu casa)",
+                1, 5.0, bg, color, cat, tipoNorm, ubicacion, contacto, conds, "Recién publicado"
         );
-
-        publicaciones.add(0, nueva);
-
-        // También registrar en Mi Actividad
-        publicacionesUsuario.add(0, new ItemActividad(
-                nueva.id(),
-                "servicio".equalsIgnoreCase(nueva.tipo()) ? "Mi servicio" : nueva.tipo().substring(0, 1).toUpperCase() + nueva.tipo().substring(1),
-                nueva.rubro(),
-                nueva.detalle(),
-                "Activo",
-                "Hoy",
-                0,
-                null,
-                null
-        ));
-
-        return nueva;
     }
 
     public RespuestaSolicitudFavor solicitarFavor(String id, SolicitudFavor solicitud, String solicitante) {
         PublicacionItem item = obtenerPorId(id);
-        String chatSugerido = "2"; // ID chat Julio R.
+        String favorId = UUID.randomUUID().toString();
+        String titulo = item != null ? item.rubro() : "Favor vecinal";
+        String propietario = item != null ? item.nombre() : "Vecino";
+        String plazo = (solicitud != null && solicitud.fechaDevolucion() != null && !solicitud.fechaDevolucion().isBlank())
+                ? solicitud.fechaDevolucion()
+                : "esta semana";
+
+        jdbc.update("""
+                INSERT INTO actividad_vecinal
+                (id, lista_tipo, tipo, titulo, subtitulo, estado, fecha, interesados_count, prestado_a, hasta_fecha, activo)
+                VALUES (?, 'PEDI', 'Pedí', ?, ?, 'En curso', 'Hoy', 1, ?, ?, true)
+                """,
+                favorId, titulo, "Solicitado a " + propietario + " · Por devolver " + plazo, propietario, plazo);
+
         return new RespuestaSolicitudFavor(
                 true,
-                "Solicitud de préstamo enviada al vecino " + (item != null ? item.nombre() : "propietario"),
-                UUID.randomUUID().toString(),
-                chatSugerido
+                "Solicitud de préstamo enviada al vecino " + propietario,
+                favorId,
+                "2"
         );
     }
 
     public boolean cambiarEstado(String id, CambioEstado cambio) {
-        estados.put(id, cambio.estado());
+        jdbc.update("UPDATE publicaciones_barrio SET estado = ? WHERE id = ?", cambio.estado(), id);
+        jdbc.update("UPDATE actividad_vecinal SET estado = ? WHERE id = ?", cambio.estado(), id);
+        return true;
+    }
+
+    public boolean eliminar(String id) {
+        jdbc.update("UPDATE publicaciones_barrio SET activo = false WHERE id = ?", id);
+        jdbc.update("UPDATE actividad_vecinal SET activo = false WHERE id = ?", id);
         return true;
     }
 
     public List<ItemActividad> listarMisPublicaciones() {
-        return new ArrayList<>(publicacionesUsuario);
+        return jdbc.query(
+                "SELECT * FROM actividad_vecinal WHERE lista_tipo = 'MIS_PUBLICACIONES' AND activo = true ORDER BY creado_en DESC, id ASC",
+                this::mapActividad);
     }
 
     public List<ItemActividad> listarFavoresHice() {
-        return new ArrayList<>(favoresHice);
+        return jdbc.query(
+                "SELECT * FROM actividad_vecinal WHERE lista_tipo = 'HICE' AND activo = true ORDER BY creado_en DESC, id ASC",
+                this::mapActividad);
     }
 
     public List<ItemActividad> listarFavoresPedi() {
-        return new ArrayList<>(favoresPedi);
+        return jdbc.query(
+                "SELECT * FROM actividad_vecinal WHERE lista_tipo = 'PEDI' AND activo = true ORDER BY creado_en DESC, id ASC",
+                this::mapActividad);
     }
 
     public boolean confirmarDevolucion(String id) {
-        for (int i = 0; i < publicacionesUsuario.size(); i++) {
-            ItemActividad it = publicacionesUsuario.get(i);
-            if (it.id().equals(id)) {
-                publicacionesUsuario.set(i, new ItemActividad(
-                        it.id(), it.tipo(), it.titulo(), "Devolución confirmada con éxito. Ya puedes calificar a tu vecino.",
-                        "Finalizado", it.fecha(), it.interesadosCount(), it.prestadoA(), it.hastaFecha()
-                ));
-                return true;
-            }
-        }
+        jdbc.update("""
+                UPDATE actividad_vecinal
+                SET estado = 'Finalizado',
+                    subtitulo = 'Devolución confirmada con éxito. Ya puedes calificar a tu vecino.'
+                WHERE id = ?
+                """, id);
         return true;
+    }
+
+    public List<PinMapa> listarPinesMapa(String categoria, String tag) {
+        StringBuilder sql = new StringBuilder("SELECT * FROM publicaciones_barrio WHERE activo = true");
+        List<Object> params = new ArrayList<>();
+        if (categoria != null && !categoria.isBlank()) {
+            sql.append(" AND lower(categoria) = lower(?)");
+            params.add(categoria);
+        }
+        if (tag != null && !tag.isBlank() && !tag.equalsIgnoreCase("Todos")) {
+            sql.append(" AND (lower(tag) = lower(?) OR lower(rubro) LIKE ?)");
+            params.add(tag);
+            params.add("%" + tag.toLowerCase() + "%");
+        }
+        sql.append(" ORDER BY creado_en DESC, id ASC");
+        return jdbc.query(sql.toString(), (rs, i) -> new PinMapa(
+                rs.getString("id"),
+                rs.getString("iniciales"),
+                rs.getString("nombre"),
+                rs.getString("rubro"),
+                rs.getInt("vistos"),
+                rs.getString("distancia"),
+                "3 min a pie",
+                rs.getDouble("latitud"),
+                rs.getDouble("longitud"),
+                rs.getString("categoria"),
+                rs.getString("tag")
+        ), params.toArray());
     }
 }

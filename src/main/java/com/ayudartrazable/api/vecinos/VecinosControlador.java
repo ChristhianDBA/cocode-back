@@ -1,17 +1,18 @@
 package com.ayudartrazable.api.vecinos;
 
 import com.ayudartrazable.api.comun.seguridad.UsuarioActual;
+import com.ayudartrazable.api.identidad.IdentidadServicio;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.RespuestaDomicilio;
 import com.ayudartrazable.api.identidad.dto.IdentidadDto.SolicitudDomicilio;
+import com.ayudartrazable.api.vecinos.dto.ResenasDto.SolicitudOcupacion;
 import com.ayudartrazable.api.vecinos.dto.VecinosDto.DispositivoRegistrado;
 import com.ayudartrazable.api.vecinos.dto.VecinosDto.Perfil;
 import com.ayudartrazable.api.vecinos.dto.VecinosDto.ReporteRecibido;
 import com.ayudartrazable.api.vecinos.dto.VecinosDto.SolicitudDispositivo;
 import com.ayudartrazable.api.vecinos.dto.VecinosDto.SolicitudReporteDatos;
 import com.ayudartrazable.api.vecinos.dto.VecinosDto.TelefonosEmergencia;
-import com.ayudartrazable.api.identidad.IdentidadServicio;
 import jakarta.validation.Valid;
-import tools.jackson.databind.JsonNode;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.JsonNode;
 
 @RestController
 @RequestMapping("/api/v1/vecinos")
@@ -29,10 +31,12 @@ public class VecinosControlador {
 
     private final VecinosServicio servicio;
     private final IdentidadServicio identidad;
+    private final ResenasServicio resenas;
 
-    public VecinosControlador(VecinosServicio servicio, IdentidadServicio identidad) {
+    public VecinosControlador(VecinosServicio servicio, IdentidadServicio identidad, ResenasServicio resenas) {
         this.identidad = identidad;
         this.servicio = servicio;
+        this.resenas = resenas;
     }
 
     @GetMapping("/me")
@@ -75,9 +79,16 @@ public class VecinosControlador {
         return servicio.reportarDatos(usuario.usuarioId(), solicitud.descripcion());
     }
 
+    @GetMapping("/me/ocupacion")
+    public Map<String, Object> obtenerOcupacion(@AuthenticationPrincipal UsuarioActual usuario) {
+        return resenas.obtenerOcupacion(usuario != null ? usuario.usuarioId() : null);
+    }
+
     @PutMapping("/me/ocupacion")
-    public java.util.Map<String, Object> actualizarOcupacion(
-            @Valid @RequestBody com.ayudartrazable.api.vecinos.dto.ResenasDto.SolicitudOcupacion solicitud) {
-        return java.util.Map.of("exitoso", true, "mensaje", "Ocupación actualizada correctamente");
+    public Map<String, Object> actualizarOcupacion(
+            @AuthenticationPrincipal UsuarioActual usuario,
+            @RequestBody SolicitudOcupacion solicitud) {
+        boolean ok = resenas.actualizarOcupacion(usuario != null ? usuario.usuarioId() : null, solicitud);
+        return Map.of("exitoso", ok, "mensaje", "Ocupación actualizada correctamente en base de datos");
     }
 }

@@ -51,6 +51,7 @@ public class ConfiguracionSeguridad {
             "/api/v1/vecinos/*/perfil",
             "/api/v1/vecinos/*/resenas",
             "/api/v1/vecinos/*/visto-bueno",
+            "/api/v1/vecinos/me/ocupacion",
             "/api/v1/emergencias/directorio-local",
             "/api/v1/emergencias/tablero/**"
     };

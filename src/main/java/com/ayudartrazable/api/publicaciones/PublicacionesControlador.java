@@ -73,6 +73,7 @@ public class PublicacionesControlador {
 
     @DeleteMapping("/{id}")
     public Map<String, Object> eliminar(@PathVariable String id) {
-        return Map.of("eliminado", true, "id", id);
+        boolean ok = servicio.eliminar(id);
+        return Map.of("eliminado", ok, "id", id);
     }
 }

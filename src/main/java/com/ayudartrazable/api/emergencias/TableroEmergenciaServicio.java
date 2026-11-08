@@ -8,93 +8,103 @@ import com.ayudartrazable.api.emergencias.dto.TableroEmergenciaDto.RespuestaConf
 import com.ayudartrazable.api.emergencias.dto.TableroEmergenciaDto.ServicioLocalItem;
 import com.ayudartrazable.api.emergencias.dto.TableroEmergenciaDto.SolicitudActivarTablero;
 import com.ayudartrazable.api.emergencias.dto.TableroEmergenciaDto.SolicitudAporte;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
 public class TableroEmergenciaServicio {
 
-    private final List<ServicioLocalItem> directorioLocal = new CopyOnWriteArrayList<>();
-    private final List<NecesidadItem> necesidades = new CopyOnWriteArrayList<>();
-    private final List<AporteItem> aportes = new CopyOnWriteArrayList<>();
-    private final AtomicInteger personasASalvo = new AtomicInteger(126);
-    private final AtomicInteger confirmaciones = new AtomicInteger(5);
-    private volatile boolean tableroActivo = true;
-    private volatile String tipoEmergenciaActual = "Lluvias intensas en Los Pinos";
-    private volatile String descripcionActual = "Activado hoy 06:40 · confirmado por 5 vecinos en 12 min";
+    private final JdbcTemplate jdbc;
 
-    public TableroEmergenciaServicio() {
-        // Semillas oficiales Figma Screen 8 "En tu barrio"
-        directorioLocal.add(new ServicioLocalItem("1", "SZ", "Serenazgo de Surco", "[Nº SERENAZGO] · 24 h", "0.5 km", "014115555", "#faecd5", "#8c531b"));
-        directorioLocal.add(new ServicioLocalItem("2", "CM", "Comisaría del sector", "1.2 km · [Nº COMISARÍA]", "1.2 km", "012711000", "#faecd5", "#8c531b"));
-        directorioLocal.add(new ServicioLocalItem("3", "PS", "Posta de salud", "800 m · Abierta hasta 20:00", "800 m", "014490000", "#fee4e2", "#912018"));
-        directorioLocal.add(new ServicioLocalItem("4", "FT", "Farmacia de turno", "350 m · Abierta ahora", "350 m", "013142020", "#d6eee2", "#144e40"));
-        directorioLocal.add(new ServicioLocalItem("5", "CJ", "Cerrajería 24 h · Ana Paredes", "Servicio verificado", "400 m", "987654321", "#faecd5", "#8c531b"));
-
-        // Semillas de ayuda comunitaria
-        necesidades.add(new NecesidadItem("n1", "Agua embotellada", "Prioridad alta", 120, 300, "L", false));
-        necesidades.add(new NecesidadItem("n2", "Frazadas", "Prioridad alta", 45, 80, "", false));
-        necesidades.add(new NecesidadItem("n3", "Botiquín básico", "Prioridad alta", 6, 20, "", false));
-        necesidades.add(new NecesidadItem("n4", "Voluntarios para limpieza", "Prioridad alta", 8, 15, "personas", false));
-
-        aportes.add(new AporteItem("a1", "10 Bidones de agua mineral", "Julio R. · Mz. A", "Hace 15 min", false));
-        aportes.add(new AporteItem("a2", "4 Frazadas y ropa abrigadora", "Rosa Q. · Mz. C", "Hace 25 min", false));
-        aportes.add(new AporteItem("a3", "Botiquín con gasas y alcohol", "Lucía T. · Mz. B", "Hace 40 min", false));
+    public TableroEmergenciaServicio(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
     }
 
     public DirectorioLocalResponse obtenerDirectorioLocal(String cuadrante) {
+        List<ServicioLocalItem> servicios = jdbc.query(
+                "SELECT * FROM directorio_local ORDER BY orden ASC, id ASC",
+                (rs, i) -> new ServicioLocalItem(
+                        rs.getString("id"),
+                        rs.getString("initials"),
+                        rs.getString("name"),
+                        rs.getString("subtitle"),
+                        rs.getString("distance"),
+                        rs.getString("phone"),
+                        rs.getString("bg"),
+                        rs.getString("color")
+                ));
         return new DirectorioLocalResponse(
-                "Santiago de Surco",
-                cuadrante != null ? cuadrante : "Urb. Los Pinos, Surco",
-                new ArrayList<>(directorioLocal)
+                "Lima",
+                cuadrante != null && !cuadrante.isBlank() ? cuadrante : "Tu cuadrante vecinal",
+                servicios
         );
     }
 
     public EstadoTableroResponse obtenerEstadoTablero(String cuadrante) {
+        List<EstadoTableroResponse> list = jdbc.query(
+                "SELECT * FROM tablero_emergencia WHERE id = 'tablero-1'",
+                (rs, i) -> new EstadoTableroResponse(
+                        rs.getString("id"),
+                        cuadrante != null && !cuadrante.isBlank() ? cuadrante : rs.getString("cuadrante"),
+                        rs.getString("tipo_emergencia"),
+                        rs.getString("descripcion"),
+                        rs.getString("estado"),
+                        rs.getInt("confirmaciones"),
+                        rs.getInt("meta_confirmaciones"),
+                        rs.getInt("minutos_restantes"),
+                        rs.getBoolean("activo"),
+                        rs.getInt("personas_a_salvo")
+                ));
+        if (!list.isEmpty()) {
+            return list.get(0);
+        }
         return new EstadoTableroResponse(
                 "tablero-1",
-                cuadrante != null ? cuadrante : "Urb. Los Pinos, Surco",
-                tipoEmergenciaActual,
-                descripcionActual,
-                tableroActivo ? "ACTIVO" : "SOLICITADO",
-                confirmaciones.get(),
-                5,
-                tableroActivo ? 0 : 25,
-                tableroActivo,
-                personasASalvo.get()
+                cuadrante != null ? cuadrante : "Tu cuadrante vecinal",
+                "Lluvias intensas",
+                "Activado hoy · confirmado por vecinos",
+                "ACTIVO", 5, 5, 0, true, 126
         );
     }
 
     public EstadoTableroResponse solicitarActivacion(SolicitudActivarTablero solicitud) {
-        tipoEmergenciaActual = solicitud.tipoEmergencia();
-        descripcionActual = solicitud.descripcion();
-        confirmaciones.set(1);
-        tableroActivo = false;
+        String cuad = solicitud.cuadrante() != null && !solicitud.cuadrante().isBlank()
+                ? solicitud.cuadrante()
+                : "Tu cuadrante vecinal";
 
-        return new EstadoTableroResponse(
-                "tablero-1",
-                solicitud.cuadrante() != null ? solicitud.cuadrante() : "Urb. Los Pinos, Surco",
-                solicitud.tipoEmergencia(),
-                solicitud.descripcion(),
-                "SOLICITADO",
-                1,
-                5,
-                30,
-                false,
-                personasASalvo.get()
-        );
+        jdbc.update("""
+                UPDATE tablero_emergencia
+                SET cuadrante = ?,
+                    tipo_emergencia = ?,
+                    descripcion = ?,
+                    estado = 'SOLICITADO',
+                    confirmaciones = 1,
+                    minutos_restantes = 30,
+                    activo = false,
+                    actualizado_en = clock_timestamp()
+                WHERE id = 'tablero-1'
+                """, cuad, solicitud.tipoEmergencia(), solicitud.descripcion());
+
+        return obtenerEstadoTablero(cuad);
     }
 
     public RespuestaConfirmacion confirmarSolicitud(String id) {
-        int c = confirmaciones.incrementAndGet();
-        boolean activado = c >= 5;
-        if (activado) {
-            tableroActivo = true;
-        }
+        jdbc.update("""
+                UPDATE tablero_emergencia
+                SET confirmaciones = confirmaciones + 1,
+                    activo = (confirmaciones + 1) >= meta_confirmaciones,
+                    estado = CASE WHEN (confirmaciones + 1) >= meta_confirmaciones THEN 'ACTIVO' ELSE estado END,
+                    minutos_restantes = CASE WHEN (confirmaciones + 1) >= meta_confirmaciones THEN 0 ELSE minutos_restantes END,
+                    actualizado_en = clock_timestamp()
+                WHERE id = 'tablero-1'
+                """);
+
+        EstadoTableroResponse est = obtenerEstadoTablero(null);
+        boolean activado = est.activo();
+        int c = est.confirmacionesActuales();
+
         return new RespuestaConfirmacion(
                 true,
                 c,
@@ -104,22 +114,48 @@ public class TableroEmergenciaServicio {
     }
 
     public int registrarEstoyASalvo(String id) {
-        return personasASalvo.incrementAndGet();
+        jdbc.update("""
+                UPDATE tablero_emergencia
+                SET personas_a_salvo = personas_a_salvo + 1,
+                    actualizado_en = clock_timestamp()
+                WHERE id = 'tablero-1'
+                """);
+        return obtenerEstadoTablero(null).personasASalvoCount();
     }
 
     public List<NecesidadItem> listarNecesidades(String id) {
-        return new ArrayList<>(necesidades);
+        return jdbc.query(
+                "SELECT * FROM tablero_necesidades WHERE tablero_id = 'tablero-1' ORDER BY orden ASC, id ASC",
+                (rs, i) -> new NecesidadItem(
+                        rs.getString("id"),
+                        rs.getString("recurso"),
+                        rs.getString("prioridad"),
+                        rs.getInt("actual"),
+                        rs.getInt("meta"),
+                        rs.getString("unidad"),
+                        rs.getBoolean("cubierto")
+                ));
     }
 
     public AporteItem registrarAporte(String id, SolicitudAporte solicitud, String vecino) {
-        AporteItem nuevo = new AporteItem(
-                UUID.randomUUID().toString(),
-                solicitud.descripcion(),
-                vecino != null ? vecino : "Vecino Verificado",
-                "Ahora",
-                false
-        );
-        aportes.add(0, nuevo);
-        return nuevo;
+        String aporteId = UUID.randomUUID().toString();
+        String autor = vecino != null && !vecino.isBlank() ? vecino : "Vecino Verificado";
+
+        jdbc.update("""
+                INSERT INTO tablero_aportes (id, tablero_id, descripcion, vecino, tiempo, entregado)
+                VALUES (?, 'tablero-1', ?, ?, 'Ahora', false)
+                """, aporteId, solicitud.descripcion(), autor);
+
+        if (solicitud.necesidadId() != null && !solicitud.necesidadId().isBlank()) {
+            int cant = Math.max(1, solicitud.cantidad());
+            jdbc.update("""
+                    UPDATE tablero_necesidades
+                    SET actual = actual + ?,
+                        cubierto = (actual + ?) >= meta
+                    WHERE id = ?
+                    """, cant, cant, solicitud.necesidadId());
+        }
+
+        return new AporteItem(aporteId, solicitud.descripcion(), autor, "Ahora", false);
     }
 }

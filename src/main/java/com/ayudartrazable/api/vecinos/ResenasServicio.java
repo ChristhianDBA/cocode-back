@@ -5,108 +5,221 @@ import com.ayudartrazable.api.vecinos.dto.ResenasDto.ResenaItem;
 import com.ayudartrazable.api.vecinos.dto.ResenasDto.RespuestaVistoBueno;
 import com.ayudartrazable.api.vecinos.dto.ResenasDto.SolicitudOcupacion;
 import com.ayudartrazable.api.vecinos.dto.ResenasDto.SolicitudResena;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class ResenasServicio {
 
-    private final Map<String, PerfilVecinoPublico> perfiles = new ConcurrentHashMap<>();
-    private final Map<String, List<ResenaItem>> resenasPorVecino = new ConcurrentHashMap<>();
-    private final Map<String, Boolean> misVistosBuenos = new ConcurrentHashMap<>();
+    private final JdbcTemplate jdbc;
+    private final JsonMapper json;
 
-    public ResenasServicio() {
-        // Rosa Quispe (Figma Screen 1)
-        perfiles.put("1", new PerfilVecinoPublico(
-                "1", "RQ", "Rosa Quispe", "Gasfitería", 12, "A 180 m", "Mz. D, Los Pinos",
-                42, 4.9, 18, "vecino desde marzo 2026", false
-        ));
+    public ResenasServicio(JdbcTemplate jdbc, JsonMapper json) {
+        this.jdbc = jdbc;
+        this.json = json;
+    }
 
-        // Semilla de reseñas para Rosa Quispe
-        List<ResenaItem> resenasRosa = new CopyOnWriteArrayList<>();
-        resenasRosa.add(new ResenaItem(
-                "r1", "Carmen M.", "CM", "Mz. B · a 2 cuadras", 5, true,
-                List.of("Puntual", "Precio justo", "Trabajo limpio"),
-                "Vino en menos de media hora por una fuga en la cocina. Cobró lo que dijo y dejó todo limpio.",
-                "Hace 3 días", true
-        ));
-        resenasRosa.add(new ResenaItem(
-                "r2", "Julio R.", "JR", "Mz. A · a 1 cuadra", 5, true,
-                List.of("Honesta", "Explica bien"),
-                "Cambió una llave de paso rota el domingo por la tarde. Muy atenta y honesta con los materiales.",
-                "Hace 2 semanas", true
-        ));
-        resenasPorVecino.put("1", resenasRosa);
+    private PerfilVecinoPublico mapPerfil(ResultSet rs, int rowNum) throws SQLException {
+        return new PerfilVecinoPublico(
+                rs.getString("id"),
+                rs.getString("iniciales"),
+                rs.getString("nombre"),
+                rs.getString("oficio"),
+                rs.getInt("anios_oficio"),
+                rs.getString("distancia"),
+                rs.getString("ubicacion"),
+                rs.getInt("vistos_buenos"),
+                rs.getDouble("calificacion"),
+                rs.getInt("resenas_count"),
+                rs.getString("fecha_registro"),
+                rs.getBoolean("visto_bueno_dado")
+        );
+    }
 
-        // Miguel Huamán
-        perfiles.put("2", new PerfilVecinoPublico(
-                "2", "MH", "Miguel Huamán", "Electricista", 8, "A 350 m", "Mz. B, Los Pinos",
-                31, 4.8, 12, "vecino desde enero 2026", false
-        ));
+    private ResenaItem mapResena(ResultSet rs, int rowNum) throws SQLException {
+        List<String> destacados = List.of();
+        try {
+            String raw = rs.getString("destacados");
+            if (raw != null && !raw.isBlank()) {
+                destacados = json.readValue(raw, new TypeReference<List<String>>() {});
+            }
+        } catch (Exception ignored) {
+        }
+        return new ResenaItem(
+                rs.getString("id"),
+                rs.getString("autor"),
+                rs.getString("iniciales"),
+                rs.getString("ubicacion"),
+                rs.getInt("calificacion"),
+                rs.getBoolean("recomendo"),
+                destacados,
+                rs.getString("comentario"),
+                rs.getString("fecha"),
+                rs.getBoolean("verificado")
+        );
     }
 
     public PerfilVecinoPublico obtenerPerfil(String vecinoId) {
-        PerfilVecinoPublico base = perfiles.get(vecinoId);
-        if (base == null) {
-            return new PerfilVecinoPublico(
-                    vecinoId, "V", "Vecino Verificado", "Servicio general", 5, "Cerca de ti",
-                    "Los Pinos", 10, 5.0, 3, "vecino verificado", false
-            );
+        List<PerfilVecinoPublico> list = jdbc.query(
+                "SELECT * FROM perfiles_vecinos WHERE id = ?",
+                this::mapPerfil, vecinoId);
+        if (!list.isEmpty()) {
+            return list.get(0);
         }
-        boolean miVisto = misVistosBuenos.getOrDefault(vecinoId, false);
         return new PerfilVecinoPublico(
-                base.id(), base.iniciales(), base.nombre(), base.oficio(), base.aniosOficio(),
-                base.distancia(), base.ubicacion(),
-                miVisto ? base.vistosBuenos() + 1 : base.vistosBuenos(),
-                base.calificacion(), base.resenasCount(), base.fechaRegistro(), miVisto
+                vecinoId, "V", "Vecino Verificado", "Servicio general", 5, "Cerca de ti",
+                "Los Pinos", 10, 5.0, 3, "vecino verificado", false
         );
     }
 
     public RespuestaVistoBueno alternarVistoBueno(String vecinoId) {
-        boolean actual = misVistosBuenos.getOrDefault(vecinoId, false);
-        boolean nuevo = !actual;
-        misVistosBuenos.put(vecinoId, nuevo);
+        PerfilVecinoPublico actual = obtenerPerfil(vecinoId);
+        boolean nuevoEstado = !actual.tieneMiVistoBueno();
+        int nuevoTotal = Math.max(0, actual.vistosBuenos() + (nuevoEstado ? 1 : -1));
 
-        PerfilVecinoPublico base = perfiles.get(vecinoId);
-        int total = (base != null ? base.vistosBuenos() : 10) + (nuevo ? 1 : 0);
-        return new RespuestaVistoBueno(nuevo, total);
+        int updated = jdbc.update("""
+                UPDATE perfiles_vecinos
+                SET visto_bueno_dado = ?, vistos_buenos = ?, actualizado_en = clock_timestamp()
+                WHERE id = ?
+                """, nuevoEstado, nuevoTotal, vecinoId);
+
+        if (updated == 0) {
+            jdbc.update("""
+                    INSERT INTO perfiles_vecinos (id, iniciales, nombre, oficio, anios_oficio, distancia, ubicacion, vistos_buenos, calificacion, resenas_count, fecha_registro, visto_bueno_dado)
+                    VALUES (?, 'V', 'Vecino Verificado', 'Servicio general', 5, 'Cerca de ti', 'Los Pinos', ?, 5.0, 3, 'vecino verificado', ?)
+                    """, vecinoId, nuevoTotal, nuevoEstado);
+        }
+        jdbc.update("UPDATE publicaciones_barrio SET vistos = ? WHERE id = ?", nuevoTotal, vecinoId);
+
+        return new RespuestaVistoBueno(nuevoEstado, nuevoTotal);
     }
 
     public List<ResenaItem> listarResenas(String vecinoId) {
-        return resenasPorVecino.computeIfAbsent(vecinoId, k -> new CopyOnWriteArrayList<>());
+        return jdbc.query(
+                "SELECT * FROM resenas_vecinos WHERE vecino_id = ? ORDER BY creado_en DESC",
+                this::mapResena, vecinoId);
     }
 
     public ResenaItem agregarResena(String vecinoId, SolicitudResena solicitud, String autorNombre) {
-        List<ResenaItem> list = resenasPorVecino.computeIfAbsent(vecinoId, k -> new CopyOnWriteArrayList<>());
+        String id = UUID.randomUUID().toString();
         String autor = autorNombre != null && !autorNombre.isBlank() ? autorNombre : "Vecino Verificado";
         String iniciales = autor.substring(0, Math.min(2, autor.length())).toUpperCase();
-
-        ResenaItem nueva = new ResenaItem(
-                UUID.randomUUID().toString(),
-                autor,
-                iniciales,
-                "Mz. D · a tu manzana",
-                solicitud.calificacion(),
-                solicitud.recomendo(),
-                solicitud.destacados() != null ? solicitud.destacados() : List.of(),
-                solicitud.comentario(),
-                "Hoy",
-                true
-        );
-        list.add(0, nueva);
-
-        if (solicitud.recomendo()) {
-            misVistosBuenos.put(vecinoId, true);
+        List<String> dest = solicitud.destacados() != null ? solicitud.destacados() : List.of();
+        String destJson = "[]";
+        try {
+            destJson = json.writeValueAsString(dest);
+        } catch (Exception ignored) {
         }
 
-        return nueva;
+        jdbc.update("""
+                INSERT INTO resenas_vecinos
+                (id, vecino_id, autor, iniciales, ubicacion, calificacion, recomendo, destacados, comentario, fecha, verificado)
+                VALUES (?, ?, ?, ?, 'Mz. D · a tu manzana', ?, ?, ?::jsonb, ?, 'Hoy', true)
+                """,
+                id, vecinoId, autor, iniciales, solicitud.calificacion(), solicitud.recomendo(), destJson, solicitud.comentario());
+
+        if (solicitud.recomendo()) {
+            jdbc.update("""
+                    UPDATE perfiles_vecinos
+                    SET visto_bueno_dado = true,
+                        vistos_buenos = vistos_buenos + 1,
+                        resenas_count = resenas_count + 1,
+                        actualizado_en = clock_timestamp()
+                    WHERE id = ?
+                    """, vecinoId);
+        } else {
+            jdbc.update("""
+                    UPDATE perfiles_vecinos
+                    SET resenas_count = resenas_count + 1,
+                        actualizado_en = clock_timestamp()
+                    WHERE id = ?
+                    """, vecinoId);
+        }
+
+        return new ResenaItem(
+                id, autor, iniciales, "Mz. D · a tu manzana",
+                solicitud.calificacion(), solicitud.recomendo(), dest, solicitud.comentario(), "Hoy", true
+        );
+    }
+
+    public Map<String, Object> obtenerOcupacion(UUID usuarioId) {
+        String key = usuarioId != null ? usuarioId.toString() : "default";
+        List<Map<String, Object>> rows = jdbc.query(
+                "SELECT oficio, anios_experiencia, visible_directorio, activa FROM ocupaciones_usuario WHERE id = ?",
+                (rs, i) -> Map.of(
+                        "oficio", rs.getString("oficio") != null ? rs.getString("oficio") : "",
+                        "aniosExperiencia", rs.getInt("anios_experiencia"),
+                        "visibleDirectorio", rs.getBoolean("visible_directorio"),
+                        "activa", rs.getBoolean("activa")
+                ), key);
+        if (!rows.isEmpty()) {
+            return rows.get(0);
+        }
+        List<Map<String, Object>> defRows = jdbc.query(
+                "SELECT oficio, anios_experiencia, visible_directorio, activa FROM ocupaciones_usuario WHERE id = 'default'",
+                (rs, i) -> Map.of(
+                        "oficio", rs.getString("oficio") != null ? rs.getString("oficio") : "",
+                        "aniosExperiencia", rs.getInt("anios_experiencia"),
+                        "visibleDirectorio", rs.getBoolean("visible_directorio"),
+                        "activa", rs.getBoolean("activa")
+                ));
+        return defRows.isEmpty()
+                ? Map.of("oficio", "Electricidad", "aniosExperiencia", 8, "visibleDirectorio", true, "activa", true)
+                : defRows.get(0);
     }
 
     public boolean actualizarOcupacion(UUID usuarioId, SolicitudOcupacion ocupacion) {
+        String key = usuarioId != null ? usuarioId.toString() : "default";
+        String oficioLimpio = ocupacion.oficio() != null ? ocupacion.oficio().trim() : "";
+        boolean activa = !oficioLimpio.isEmpty() && !oficioLimpio.equalsIgnoreCase("NINGUNO");
+
+        jdbc.update("""
+                INSERT INTO ocupaciones_usuario (id, usuario_id, oficio, anios_experiencia, visible_directorio, activa, actualizado_en)
+                VALUES (?, ?, ?, ?, ?, ?, clock_timestamp())
+                ON CONFLICT (id) DO UPDATE
+                SET oficio = EXCLUDED.oficio,
+                    anios_experiencia = EXCLUDED.anios_experiencia,
+                    visible_directorio = EXCLUDED.visible_directorio,
+                    activa = EXCLUDED.activa,
+                    actualizado_en = clock_timestamp()
+                """,
+                key, usuarioId, activa ? oficioLimpio : "", ocupacion.aniosExperiencia(), ocupacion.visibleDirectorio(), activa);
+
+        // Actualizar también el registro 'default' para sesiones sin token o pruebas rápidas
+        jdbc.update("""
+                INSERT INTO ocupaciones_usuario (id, usuario_id, oficio, anios_experiencia, visible_directorio, activa, actualizado_en)
+                VALUES ('default', ?, ?, ?, ?, ?, clock_timestamp())
+                ON CONFLICT (id) DO UPDATE
+                SET oficio = EXCLUDED.oficio,
+                    anios_experiencia = EXCLUDED.anios_experiencia,
+                    visible_directorio = EXCLUDED.visible_directorio,
+                    activa = EXCLUDED.activa,
+                    actualizado_en = clock_timestamp()
+                """,
+                usuarioId, activa ? oficioLimpio : "", ocupacion.aniosExperiencia(), ocupacion.visibleDirectorio(), activa);
+
+        if (activa) {
+            jdbc.update("""
+                    UPDATE actividad_vecinal
+                    SET titulo = ?,
+                        subtitulo = ?,
+                        activo = true
+                    WHERE id = 'u1'
+                    """,
+                    oficioLimpio + " · " + ocupacion.aniosExperiencia() + " años de experiencia",
+                    ocupacion.visibleDirectorio()
+                            ? "Visible en Servicios · vecinos pueden contactarte"
+                            : "Oculto temporalmente del directorio");
+        } else {
+            jdbc.update("UPDATE actividad_vecinal SET activo = false WHERE id = 'u1'");
+        }
         return true;
     }
 }
