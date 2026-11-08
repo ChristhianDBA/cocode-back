@@ -1,0 +1,33 @@
+server:
+  port: 3001
+
+spring:
+  application:
+    name: ayudar-trazable
+  datasource:
+    url: ${BD_URL:jdbc:postgresql://localhost:5432/ayudar_trazable}
+    username: ${BD_USUARIO:app_ayudar}
+    password: ${BD_CLAVE:}
+  jackson:
+    default-property-inclusion: non_null
+
+seguridad:
+  jwt:
+    secreto: ${JWT_SECRETO:}
+
+integraciones:
+  modo: ${INTEGRACIONES_MODO:real}
+  registro-civil:
+    modo: ${integraciones.modo}
+    url: ${RENIEC_URL:}
+    token: ${RENIEC_TOKEN:}
+  twilio:
+    cuenta: ${TWILIO_CUENTA:}
+    clave: ${TWILIO_CLAVE:}
+    remitente-sms: ${TWILIO_REMITENTE_SMS:}
+    remitente-whatsapp: ${TWILIO_REMITENTE_WHATSAPP:}
+  mapas:
+    clave: ${MAPAS_CLAVE:}
+  fcm:
+    proyecto: ${FCM_PROYECTO:}
+    credenciales: ${FCM_CREDENCIALES:}

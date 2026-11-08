@@ -1,0 +1,4 @@
+integraciones:
+  modo: simulado
+  registro-civil:
+    modo: ${RENIEC_MODO:real}

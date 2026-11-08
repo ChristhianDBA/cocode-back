@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <conversionRule conversionWord="msgm" class="com.ayudartrazable.api.comun.logs.MensajeEnmascarado"/>
+    <conversionRule conversionWord="exm" class="com.ayudartrazable.api.comun.logs.ExcepcionEnmascarada"/>
+
+    <appender name="CONSOLA" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} - %msgm%n%exm</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLA"/>
+    </root>
+</configuration>

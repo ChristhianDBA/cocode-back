@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: ${BD_PRUEBAS_URL:jdbc:postgresql://localhost:5432/ayudar_trazable_pruebas}
+    username: ${BD_PRUEBAS_USUARIO:postgres}
+    password: ${PGPASSWORD:}
+    hikari:
+      connection-init-sql: SET ROLE app_ayudar
+      maximum-pool-size: 4
+
+seguridad:
+  jwt:
+    secreto: secreto-de-pruebas-con-al-menos-32-bytes-de-largo
+
+integraciones:
+  modo: simulado
