@@ -7,8 +7,8 @@ public record DatosCiviles(String dni, String nombres, String apellidoPaterno, S
 
     public DatosCiviles completarCon(LocalDate fechaDelDocumento, String sexoDelDocumento) {
         return new DatosCiviles(dni, nombres, apellidoPaterno, apellidoMaterno,
-                fechaNacimiento != null ? fechaNacimiento : fechaDelDocumento,
-                sexo != null ? sexo : sexoDelDocumento);
+                fechaDelDocumento != null ? fechaDelDocumento : fechaNacimiento,
+                (sexoDelDocumento != null && !sexoDelDocumento.isBlank()) ? sexoDelDocumento : sexo);
     }
 
     @Override

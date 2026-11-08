@@ -67,8 +67,8 @@ public class RegistroCivilSimulado implements ConsultaRegistroCivil {
                             capitalizar(r.nombres()),
                             capitalizar(r.apellidoPaterno()),
                             capitalizar(r.apellidoMaterno()),
-                            LocalDate.of(1995, 1, 1),
-                            "M");
+                            null,
+                            null);
                     cacheReniec.put(dni, datos);
                     return Optional.of(datos);
                 }
@@ -76,8 +76,8 @@ public class RegistroCivilSimulado implements ConsultaRegistroCivil {
                 LOG.warn("Consulta RENIEC online para DNI {} no disponible ({}), usando datos base.", dni, e.getMessage());
             }
 
-            // Fallback seguro para pruebas
-            return Optional.of(new DatosCiviles(dni, "Vecino", "Registrado", "Prueba", LocalDate.of(2000, 1, 1), "M"));
+            // Fallback seguro para pruebas (fechaNacimiento y sexo se completan desde el MRZ escaneado)
+            return Optional.of(new DatosCiviles(dni, "Vecino", "Registrado", "Prueba", null, null));
         }
         return Optional.empty();
     }
