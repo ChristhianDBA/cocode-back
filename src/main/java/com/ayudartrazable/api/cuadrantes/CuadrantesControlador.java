@@ -32,12 +32,7 @@ public class CuadrantesControlador {
     @GetMapping("/resolver-pin")
     public PuntoResuelto resolverPin(
             @RequestParam("lat") @DecimalMin("-90") @DecimalMax("90") double latitud,
-            @RequestParam("lng") @DecimalMin("-180") @DecimalMax("180") double longitud,
-            @RequestHeader(value = IdentidadControlador.CABECERA_TRAMITE, required = false) String tramite,
-            @AuthenticationPrincipal UsuarioActual usuario) {
-        if (usuario == null && !servicio.tramiteVigente(tramite)) {
-            throw new ExcepcionNegocio(401, "NO_AUTENTICADO", "Tu sesión no es válida. Inicia sesión nuevamente");
-        }
+            @RequestParam("lng") @DecimalMin("-180") @DecimalMax("180") double longitud) {
         return servicio.resolverPin(latitud, longitud);
     }
 
