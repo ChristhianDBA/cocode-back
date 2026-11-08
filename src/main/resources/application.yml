@@ -5,9 +5,9 @@ spring:
   application:
     name: ayudar-trazable
   datasource:
-    url: ${BD_URL:jdbc:postgresql://localhost:5432/ayudar_trazable}
-    username: ${BD_USUARIO:app_ayudar}
-    password: ${BD_CLAVE:app_ayudar}
+    url: ${BD_URL:jdbc:postgresql://aws-0-us-east-1.pooler.supabase.com:5432/postgres}
+    username: ${BD_USUARIO:postgres.kdsdcjsqdlieeojsfjin}
+    password: ${BD_CLAVE:concode2026}
   jackson:
     default-property-inclusion: non_null
 
