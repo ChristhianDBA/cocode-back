@@ -16,4 +16,19 @@ public final class CuadrantesDto {
             return new PuntoResuelto(dentroDeCobertura, cuadranteId, codigo, nombre, distrito, direccion);
         }
     }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record PinMapa(
+            String id,
+            String initials,
+            String name,
+            String trade,
+            int vouchCount,
+            String distance,
+            String walkingTime,
+            double lat,
+            double lng,
+            String category,
+            String tag) {
+    }
 }

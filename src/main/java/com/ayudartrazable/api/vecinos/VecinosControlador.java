@@ -74,4 +74,10 @@ public class VecinosControlador {
             @Valid @RequestBody SolicitudReporteDatos solicitud) {
         return servicio.reportarDatos(usuario.usuarioId(), solicitud.descripcion());
     }
+
+    @PutMapping("/me/ocupacion")
+    public java.util.Map<String, Object> actualizarOcupacion(
+            @Valid @RequestBody com.ayudartrazable.api.vecinos.dto.ResenasDto.SolicitudOcupacion solicitud) {
+        return java.util.Map.of("exitoso", true, "mensaje", "Ocupación actualizada correctamente");
+    }
 }

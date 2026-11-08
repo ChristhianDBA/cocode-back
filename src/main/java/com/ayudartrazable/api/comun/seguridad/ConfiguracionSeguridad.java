@@ -42,7 +42,16 @@ public class ConfiguracionSeguridad {
             "/ws/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
-            "/swagger-ui.html"
+            "/swagger-ui.html",
+            "/api/v1/publicaciones/**",
+            "/api/v1/actividad/**",
+            "/api/v1/chat/**",
+            "/api/v1/geo/mapa/pines",
+            "/api/v1/vecinos/*/perfil",
+            "/api/v1/vecinos/*/resenas",
+            "/api/v1/vecinos/*/visto-bueno",
+            "/api/v1/emergencias/directorio-local",
+            "/api/v1/emergencias/tablero/**"
     };
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
