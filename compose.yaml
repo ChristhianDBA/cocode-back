@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgis/postgis:15-3.3-alpine
+    container_name: ayudar_trazable_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=ayudar_trazable
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - ./db:/docker-entrypoint-initdb.d/sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ayudar_trazable"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ayudar_trazable_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - BD_URL=jdbc:postgresql://db:5432/ayudar_trazable
+      - BD_USUARIO=app_ayudar
+      - BD_CLAVE=app_ayudar
+      - JWT_SECRETO=secreto-desarrollo-ayudar-trazable-32-bytes
+    ports:
+      - "3001:3001"
+
+volumes:
+  pgdata:

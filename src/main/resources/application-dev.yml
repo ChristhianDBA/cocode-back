@@ -1,4 +1,12 @@
+spring:
+  datasource:
+    password: ${BD_CLAVE:app_ayudar}
+
 integraciones:
   modo: simulado
   registro-civil:
-    modo: ${RENIEC_MODO:real}
+    modo: ${RENIEC_MODO:simulado}
+
+seguridad:
+  jwt:
+    secreto: ${JWT_SECRETO:secreto-desarrollo-ayudar-trazable-32-bytes}

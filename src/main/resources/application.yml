@@ -1,5 +1,5 @@
 server:
-  port: 3001
+  port: ${PORT:3001}
 
 spring:
   application:
@@ -7,18 +7,18 @@ spring:
   datasource:
     url: ${BD_URL:jdbc:postgresql://localhost:5432/ayudar_trazable}
     username: ${BD_USUARIO:app_ayudar}
-    password: ${BD_CLAVE:}
+    password: ${BD_CLAVE:app_ayudar}
   jackson:
     default-property-inclusion: non_null
 
 seguridad:
   jwt:
-    secreto: ${JWT_SECRETO:}
+    secreto: ${JWT_SECRETO:secreto-desarrollo-ayudar-trazable-32-bytes}
 
 integraciones:
-  modo: ${INTEGRACIONES_MODO:real}
+  modo: ${INTEGRACIONES_MODO:simulado}
   registro-civil:
-    modo: ${integraciones.modo}
+    modo: ${RENIEC_MODO:simulado}
     url: ${RENIEC_URL:}
     token: ${RENIEC_TOKEN:}
   twilio:
