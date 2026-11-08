@@ -2,7 +2,7 @@ CREATE OR REPLACE FUNCTION fn_hash(p_texto text)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
     SELECT encode(digest(p_texto, 'sha256'), 'hex');
 $$;
@@ -12,7 +12,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 VOLATILE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
     v_token text := encode(gen_random_bytes(32), 'hex');
@@ -30,7 +30,7 @@ RETURNS jsonb
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
     SELECT jsonb_build_object(
         'usuarioId', u.id,
@@ -58,7 +58,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 VOLATILE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
     v_sesion uuid;
@@ -85,7 +85,7 @@ RETURNS integer
 LANGUAGE plpgsql
 VOLATILE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
     v_total integer;
@@ -110,7 +110,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 VOLATILE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
 BEGIN
     IF p_sesion IS NULL THEN

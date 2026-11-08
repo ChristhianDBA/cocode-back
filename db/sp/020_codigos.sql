@@ -3,7 +3,7 @@ RETURNS text
 LANGUAGE plpgsql
 VOLATILE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
     v_fijo   text := fn_parametro('codigo_fijo', NULL);
@@ -28,7 +28,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 VOLATILE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
     v_reenvio   integer := fn_parametro_entero('codigo_reenvio_segundos', 30);
@@ -84,7 +84,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 VOLATILE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
     v_maximos integer := fn_parametro_entero('codigo_intentos_maximos', 5);
@@ -131,7 +131,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 VOLATILE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
 BEGIN
     UPDATE codigos_verificacion
@@ -146,7 +146,7 @@ RETURNS boolean
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
     SELECT EXISTS (SELECT 1 FROM parametros WHERE clave = 'codigo_fijo' AND activo);
 $$;

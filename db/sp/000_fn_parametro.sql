@@ -3,7 +3,7 @@ RETURNS text
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
     SELECT coalesce((SELECT valor FROM parametros WHERE clave = p_clave AND activo), p_defecto);
 $$;
@@ -13,7 +13,7 @@ RETURNS integer
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
     v_valor text := fn_parametro(p_clave, NULL);
