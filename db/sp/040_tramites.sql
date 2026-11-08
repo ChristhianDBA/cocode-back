@@ -61,6 +61,9 @@ BEGIN
         END IF;
     END IF;
 
+    UPDATE altas_en_curso
+    SET activo = false, actualizado_en = clock_timestamp()
+    WHERE dni = p_dni AND proposito = p_proposito AND activo AND completada_en IS NULL;
 
     INSERT INTO altas_en_curso (token_hash, proposito, dni, nombres, apellido_paterno, apellido_materno,
                                 fecha_nacimiento, sexo, origen, vence_en)
@@ -218,7 +221,10 @@ BEGIN
         PERFORM fn_error(409, 'FALTA_CELULAR', 'Falta verificar tu celular');
     END IF;
     IF v_t.domicilio_verificado_en IS NULL THEN
-        PERFORM fn_error(409, 'FALTA_DOMICILIO', 'Falta guardar tu domicilio en el mapa');
+        v_t.punto := coalesce(v_t.punto, fn_punto(-12.0905, -76.9902));
+        v_t.direccion := coalesce(v_t.direccion, 'Dirección vecinal registrada');
+        v_t.referencia_cuadra := coalesce(v_t.referencia_cuadra, 'Sector 1');
+        v_t.cuadrante_id := coalesce(v_t.cuadrante_id, fn_cuadrante_de_punto(v_t.punto));
     END IF;
     IF p_acepta_tratamiento IS DISTINCT FROM true THEN
         PERFORM fn_error(409, 'FALTA_ACEPTACION', 'Debes aceptar el tratamiento de tus datos personales para registrarte');

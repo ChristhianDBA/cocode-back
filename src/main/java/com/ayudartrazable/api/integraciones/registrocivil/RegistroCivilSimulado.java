@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
@@ -29,6 +30,8 @@ public class RegistroCivilSimulado implements ConsultaRegistroCivil {
             DNI_CARMEN, new DatosCiviles(DNI_CARMEN, "Carmen", "Vargas", "Lima", LocalDate.of(1969, 5, 30), "F"),
             DNI_ALEX, new DatosCiviles(DNI_ALEX, "Juan Alexander", "Miranda", "Quispe", LocalDate.of(2001, 8, 22), "M"));
 
+    private final Map<String, DatosCiviles> cacheReniec = new ConcurrentHashMap<>(REGISTRO);
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     record ReniecPublico(
             @JsonProperty("nombres") String nombres,
@@ -44,7 +47,7 @@ public class RegistroCivilSimulado implements ConsultaRegistroCivil {
             return Optional.of(new DatosCiviles(DNI_MENOR, "Diego", "Flores", "Chávez",
                     LocalDate.now().minusYears(18).plusDays(1), "M"));
         }
-        DatosCiviles encontrado = REGISTRO.get(dni);
+        DatosCiviles encontrado = cacheReniec.get(dni);
         if (encontrado != null) {
             return Optional.of(encontrado);
         }
@@ -59,13 +62,15 @@ public class RegistroCivilSimulado implements ConsultaRegistroCivil {
 
                 if (r != null && r.nombres() != null && !r.nombres().isBlank()) {
                     LOG.info("DNI {} consultado exitosamente con RENIEC online: {} {}", dni, r.nombres(), r.apellidoPaterno());
-                    return Optional.of(new DatosCiviles(
+                    DatosCiviles datos = new DatosCiviles(
                             dni,
                             capitalizar(r.nombres()),
                             capitalizar(r.apellidoPaterno()),
                             capitalizar(r.apellidoMaterno()),
                             LocalDate.of(1995, 1, 1),
-                            "M"));
+                            "M");
+                    cacheReniec.put(dni, datos);
+                    return Optional.of(datos);
                 }
             } catch (Exception e) {
                 LOG.warn("Consulta RENIEC online para DNI {} no disponible ({}), usando datos base.", dni, e.getMessage());

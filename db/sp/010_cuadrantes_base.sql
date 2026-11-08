@@ -13,11 +13,18 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, extensions, pg_temp
 AS $$
-    SELECT c.id
-    FROM cuadrantes c
-    WHERE c.habilitado AND c.activo AND ST_Covers(c.poligono, p_punto)
-    ORDER BY c.codigo
-    LIMIT 1;
+    SELECT coalesce(
+        (SELECT c.id
+         FROM cuadrantes c
+         WHERE c.habilitado AND c.activo AND ST_Covers(c.poligono, p_punto)
+         ORDER BY c.codigo
+         LIMIT 1),
+        (SELECT c.id
+         FROM cuadrantes c
+         WHERE c.habilitado AND c.activo
+         ORDER BY c.poligono <-> p_punto
+         LIMIT 1)
+    );
 $$;
 
 CREATE OR REPLACE FUNCTION fn_resolver_punto(p_latitud double precision, p_longitud double precision)
