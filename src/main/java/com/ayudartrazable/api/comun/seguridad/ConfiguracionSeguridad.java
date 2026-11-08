@@ -28,6 +28,7 @@ public class ConfiguracionSeguridad {
 
     static final String[] RUTAS_PUBLICAS = {
             "/api/v1/auth/dni",
+            "/api/v1/auth/reniec/**",
             "/api/v1/auth/tramite",
             "/api/v1/auth/codigo",
             "/api/v1/auth/codigo/verificar",
