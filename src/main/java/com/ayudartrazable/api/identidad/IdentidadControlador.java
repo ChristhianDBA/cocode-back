@@ -47,6 +47,11 @@ public class IdentidadControlador {
         return servicio.iniciarTramite("ALTA", solicitud);
     }
 
+    @GetMapping("/reniec/{dni}")
+    public com.ayudartrazable.api.integraciones.registrocivil.DatosCiviles consultarReniec(@org.springframework.web.bind.annotation.PathVariable String dni) {
+        return servicio.consultarReniec(dni);
+    }
+
     @GetMapping("/tramite")
     public EstadoTramite estado(@RequestHeader(CABECERA_TRAMITE) String token) {
         return servicio.estadoTramite(token);

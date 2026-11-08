@@ -25,9 +25,9 @@ public final class IdentidadDto {
 
     public record SolicitudDni(
             @NotNull(message = "Ingresa tu DNI") @Pattern(regexp = "\\d{8}", message = "El DNI debe tener 8 dígitos") String dni,
-            @NotNull(message = "Indica si el DNI fue escaneado o escrito a mano") Origen origen,
-            @NotNull(message = "Ingresa tu fecha de nacimiento") @Past(message = "La fecha de nacimiento no puede ser futura") LocalDate fechaNacimiento,
-            @NotNull(message = "Indica el sexo que figura en tu DNI") @Pattern(regexp = "[FM]", message = "El sexo debe ser F o M") String sexo) {
+            Origen origen,
+            LocalDate fechaNacimiento,
+            String sexo) {
 
         @Override
         public String toString() {

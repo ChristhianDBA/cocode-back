@@ -57,8 +57,17 @@ public class IdentidadServicio {
         DatosCiviles datos = registroCivil.consultar(solicitud.dni())
                 .orElseThrow(() -> new ExcepcionNegocio(404, "DNI_NO_ENCONTRADO",
                         "No encontramos este DNI. Revisa el número e inténtalo de nuevo"))
-                .completarCon(solicitud.fechaNacimiento(), solicitud.sexo());
-        return repositorio.iniciarTramite(proposito, datos, solicitud.origen().name());
+                .completarCon(
+                        solicitud.fechaNacimiento() != null ? solicitud.fechaNacimiento() : java.time.LocalDate.of(1995, 1, 1),
+                        solicitud.sexo() != null ? solicitud.sexo() : "M");
+        String origen = solicitud.origen() != null ? solicitud.origen().name() : "ESCANEO";
+        return repositorio.iniciarTramite(proposito, datos, origen);
+    }
+
+    public DatosCiviles consultarReniec(String dni) {
+        return registroCivil.consultar(dni)
+                .orElseThrow(() -> new ExcepcionNegocio(404, "DNI_NO_ENCONTRADO",
+                        "No encontramos este DNI en RENIEC. Revisa el número e inténtalo de nuevo"));
     }
 
     public EstadoTramite estadoTramite(String token) {
